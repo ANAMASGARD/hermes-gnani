@@ -1,6 +1,12 @@
-# Gnani AI speech for Hermes Agent
+[![Hermes Agent banner by Nous Research](https://raw.githubusercontent.com/NousResearch/hermes-agent/main/assets/banner.png)](https://github.com/NousResearch/hermes-agent)
 
-Use Gnani Prisma to transcribe voice notes and live microphone audio, and Gnani Timbre to synthesize and stream Hermes voice replies. A single plugin registers `gnani` in both speech registries. This is an independent MIT-licensed community project.
+# Gnani AI Plugin for Hermes Agent
+
+![Gnani AI homepage featuring the Prisma v3.0 announcement](docs/assets/gnani-homepage.png)
+
+**Transcribe voice notes, dictate live, and hear spoken replies in Hermes Agent.** This independent community plugin registers `gnani` as both a speech-to-text and a text-to-speech provider. It uses Gnani Prisma to turn audio into text and Gnani Timbre to generate spoken audio.
+
+[Install and configure](#install-and-select) · [Speech settings](#speech-settings) · [Privacy and troubleshooting](#privacy-and-troubleshooting)
 
 | Capability | Models | Transports |
 | --- | --- | --- |
@@ -11,7 +17,32 @@ Use Gnani Prisma to transcribe voice notes and live microphone audio, and Gnani 
 
 Use Hermes Agent **0.23.2 or newer** with Python **3.14**. The reference host is v0.23.2. Install FFmpeg with `ffprobe` on PATH for duration checks on compressed recordings. PCM WAV can be measured without FFmpeg.
 
-For an unpublished local checkout, copy the `gnani` folder to the active Hermes profile's `plugins/gnani` directory and enable it. The default profile uses `~/.hermes`. Use an empty destination or a disposable profile when testing.
+### Install from Git today
+
+```sh
+hermes plugins install ANAMASGARD/hermes-gnani/gnani --ref 19b1e2396c909656144ff6cab4b16dc2e14260dd --yes-deps --enable
+hermes plugins doctor gnani --ci
+```
+
+### Install from the Hermes catalog
+
+The shorter command becomes available once Hermes publishes the listing. [Track the catalog PR](https://github.com/NousResearch/hermes-agent/pull/157704)
+
+```sh
+hermes plugins install gnani
+hermes plugins enable gnani
+hermes plugins doctor gnani --ci
+```
+
+### Configure speech
+
+Create a key in [Gnani's console](https://app.gnani.ai). Set `GNANI_API_KEY` as a secret in the **Gnani** plugin settings in Hermes Desktop, or add it to the active profile's Hermes-managed `.env` using a private editor. The plugin resolves it through the active Hermes secret scope on each operation. Start a new session if the host has cached the old credential.
+
+Merge [examples/config.yaml](examples/config.yaml) into your active profile to select `gnani` for STT and TTS and enable live transcription, chained voice mode, and streamed replies. Hermes v0.23.2 requires YAML for STT selection. For TTS, you can also choose **Gnani AI / Timbre** in `hermes tools` or select `gnani` in the dashboard after discovery. Edit models, languages, and per-model voices in the Gnani plugin settings form or YAML. Core overrides in `stt.gnani` and `tts` take precedence. Clear an old `tts.voice` override when switching to a model with a different voice catalog.
+
+### Install from a local checkout
+
+Copy the `gnani` folder to the active Hermes profile's `plugins/gnani` directory and enable it. The default profile uses `~/.hermes`. Use an empty destination or a disposable profile when testing.
 
 ```sh
 hermes plugins validate "$PWD/gnani" --install-deps
@@ -21,12 +52,6 @@ hermes plugins enable gnani
 hermes plugins list --enabled
 hermes plugins doctor gnani --ci
 ```
-
-Create a key in [Gnani's console](https://app.gnani.ai). Set `GNANI_API_KEY` as a secret in the **Gnani** plugin settings in Hermes Desktop, or add it to the active profile's Hermes-managed `.env` using a private editor. The plugin resolves it through the active Hermes secret scope on each operation. Start a new session if the host has cached the old credential.
-
-Select `gnani` for STT in YAML. The dashboard can show `gnani` in its TTS provider selector after discovery. Hermes v0.23.2 omits the STT provider from its dashboard schema. **Gnani AI / Timbre** also appears in the Text-to-Speech category of `hermes tools`. Merge [examples/config.yaml](examples/config.yaml) into your active profile to configure both providers, live STT, chained voice mode, and streaming TTS. Edit model, language, and per-model voices in the Gnani plugin settings form or YAML. Core overrides in `stt.gnani` and `tts` take precedence. Clear an old `tts.voice` override when switching to a model with a different voice catalog.
-
-Catalog installation by name becomes available after Hermes accepts the listing.
 
 ## Speech settings
 

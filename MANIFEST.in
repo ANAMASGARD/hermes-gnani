@@ -1,3 +1,4 @@
+include docs/assets/gnani-homepage.png
 include docs/research/gnani-hermes.md
 include examples/config.yaml
 include tests/conftest.py
