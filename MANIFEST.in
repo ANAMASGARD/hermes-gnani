@@ -1,0 +1,4 @@
+include docs/research/gnani-hermes.md
+include examples/config.yaml
+include tests/conftest.py
+include uv.lock

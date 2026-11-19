@@ -3,6 +3,8 @@
 import json
 import os
 import re
+import shutil
+import subprocess
 import wave
 from pathlib import Path
 from time import sleep
@@ -19,6 +21,8 @@ pytestmark = pytest.mark.live
 EN = "The blue bicycle is parked beside the garden gate."
 HI = "नमस्ते, आज मौसम बहुत अच्छा है।"
 MIXED = "आज मेरी team की meeting है।"
+PRISMA = ("prisma-v2.5", "prisma-v3.0")
+TIMBRE = (("timbre-v2.5", "Kaveri"), ("timbre-v3.0", "Shivani"))
 
 
 @pytest.fixture(scope="module")
@@ -87,9 +91,8 @@ def _english_input(speech):
     return Path(given) if given else speech["en"]
 
 
-def test_real_prisma_websocket(speech, evidence):
-    import subprocess
-
+@pytest.mark.parametrize("model", PRISMA)
+def test_real_prisma_websocket(speech, evidence, model):
     path = _english_input(speech)
     pcm = subprocess.run(
         [
@@ -112,7 +115,7 @@ def test_real_prisma_websocket(speech, evidence):
         capture_output=True,
         timeout=20,
     ).stdout
-    stt = GnaniTranscription({}.get, dict, Client())
+    stt = GnaniTranscription({"stt_model": model}.get, dict, Client())
     session = stt.open_stream_session(language="en-IN")
     for at in range(0, len(pcm), 1024):
         session.push_audio(pcm[at : at + 1024])
@@ -121,10 +124,12 @@ def test_real_prisma_websocket(speech, evidence):
     assert result["success"] and result["transcript"].strip(), result.get("error")
     if not os.environ.get("GNANI_LIVE_AUDIO_EN"):
         _assert_phrase(result, ("blue", "bicycle", "garden", "gate"))
-    (evidence / "websocket.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
+    assert result["model"] == model
+    (evidence / f"{model}-websocket.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
 
 
-def test_real_prisma_long_audio(speech, evidence):
+@pytest.mark.parametrize("model", PRISMA)
+def test_real_prisma_long_audio(speech, evidence, model):
     path = os.environ.get("GNANI_LIVE_AUDIO_LONG")
     if not path:
         with wave.open(str(speech["en"])) as audio:
@@ -132,10 +137,11 @@ def test_real_prisma_long_audio(speech, evidence):
             clip = audio.readframes(audio.getnframes()) + b"\0\0" * (rate // 3)
         path = str(write_wav(evidence / "long.wav", 0, rate, clip * (1 + 64 * rate // len(clip))))
     stt = GnaniTranscription({}.get, dict, Client())
-    result = stt.transcribe(path)
+    result = stt.transcribe(path, model=model, language="en-IN")
     assert result["success"] and result["transcript"].strip(), result.get("error")
+    assert result["model"] == model
     assert result.get("job_id"), "Supply a recording longer than 30 seconds."
-    (evidence / "batch.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
+    (evidence / f"{model}-batch.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
 
 
 @pytest.mark.parametrize("locale", ["EN", "HI", "MIXED"])
@@ -154,30 +160,60 @@ def test_real_natural_speech(locale, evidence):
 @pytest.mark.skipif(
     os.environ.get("GNANI_TEST_HERMES") != "1", reason="Install into isolated Hermes first."
 )
-def test_live_hermes_dispatch(evidence):
+@pytest.mark.parametrize(
+    ("stt_model", "tts_model", "voice"),
+    [
+        ("prisma-v2.5", "timbre-v2.5", "Kaveri"),
+        ("prisma-v3.0", "timbre-v3.0", "Shivani"),
+    ],
+)
+def test_live_hermes_dispatch(evidence, tmp_path, monkeypatch, stt_model, tts_model, voice):
+    from hermes_cli.config import save_config
     from hermes_cli.plugins import discover_plugins
     from tools.transcription_streaming import open_streaming_session
     from tools.transcription_tools import transcribe_audio
     from tools.tts_streaming import resolve_streaming_provider
     from tools.tts_tool import text_to_speech_tool
 
-    discover_plugins()
-    target = evidence / "hermes-voice-reply.wav"
+    # Start from the already installed plugin. Keep each model pair's settings
+    # isolated from the developer's profile and from the other pair.
+    installed = Path(os.environ["HERMES_HOME"]) / "plugins" / "gnani"
+    shutil.copytree(installed, tmp_path / "plugins" / "gnani")
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    save_config(
+        {
+            "plugins": {
+                "enabled": ["gnani"],
+                "entries": {"gnani": {"settings": {"tts_language": "en-IN"}}},
+            },
+            "stt": {
+                "provider": "gnani",
+                "streaming": True,
+                "gnani": {"model": stt_model, "language": "en-IN"},
+            },
+            "tts": {"provider": "gnani", "model": tts_model, "voice": voice, "output_format": "wav"},
+        },
+        strip_defaults=False,
+    )
+    discover_plugins(force=True)
+    target = evidence / f"hermes-{tts_model}-reply.wav"
     spoken = json.loads(text_to_speech_tool(EN, output_path=str(target)))
     assert spoken["success"] and spoken["provider"] == "gnani", spoken.get("error")
     target = Path(spoken["file_path"])
     result = transcribe_audio(str(target), source="gateway")
-    assert result["provider"] == "gnani"
+    assert result["provider"] == "gnani" and result.get("model") == stt_model, result.get("error")
     _assert_phrase(result, ("blue", "bicycle", "garden", "gate"))
-    (evidence / "hermes-voice-note.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
+    (evidence / f"hermes-{stt_model}-voice-note.json").write_text(
+        json.dumps(result, ensure_ascii=False, indent=2)
+    )
 
-    pcm = b"".join(resolve_streaming_provider({"provider": "gnani"}).stream(EN))
+    streamer = resolve_streaming_provider({"provider": "gnani", "model": tts_model, "voice": voice})
+    assert streamer is not None
+    pcm = b"".join(streamer.stream(EN))
     assert len(pcm) > 2400 and len(pcm) % 2 == 0
-    write_wav(evidence / "hermes-tts-stream.wav", 0, 24000, pcm)
+    write_wav(evidence / f"hermes-{tts_model}-stream.wav", 0, 24000, pcm)
     host = open_streaming_session()
     assert host is not None
-    import subprocess
-
     decoded = subprocess.run(
         ["ffmpeg", "-v", "error", "-i", str(target), "-f", "s16le", "-ac", "1", "-ar", "16000", "-"],
         check=True,
@@ -189,15 +225,17 @@ def test_live_hermes_dispatch(evidence):
         sleep(0.032)
     result = host.finalize()
     _assert_phrase(result, ("blue", "bicycle", "garden", "gate"))
-    (evidence / "hermes-live-stt.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
+    assert result["model"] == stt_model
+    (evidence / f"hermes-{stt_model}-live.json").write_text(
+        json.dumps(result, ensure_ascii=False, indent=2)
+    )
 
 
+@pytest.mark.parametrize(("model", "voice"), TIMBRE)
 @pytest.mark.parametrize("fmt", ["mp3", "ogg"])
-def test_real_encoded_synthesis(evidence, fmt):
-    import subprocess
-
+def test_real_encoded_synthesis(evidence, fmt, model, voice):
     tts = GnaniTTS({"tts_language": "en-IN"}.get, dict, Client())
-    target = tts.synthesize(EN, str(evidence / f"encoded.{fmt}"), voice="Kaveri", format=fmt)
+    target = tts.synthesize(EN, str(evidence / f"{model}.{fmt}"), model=model, voice=voice, format=fmt)
     subprocess.run(
         ["ffmpeg", "-v", "error", "-i", target, "-f", "null", "-"],
         check=True,
@@ -210,8 +248,6 @@ def test_real_encoded_synthesis(evidence, fmt):
     os.environ.get("GNANI_LIVE_PRESIGNED") != "1", reason="Large signed upload is opt-in."
 )
 def test_live_presigned_batch(speech, evidence):
-    import subprocess
-
     path = evidence / "presigned.wav"
     subprocess.run(
         [

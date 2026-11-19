@@ -22,6 +22,7 @@ jobs:
       - run: uv python install 3.14
       - run: uv sync --locked
       - run: uv lock --check
+      - run: uv build --out-dir "$RUNNER_TEMP/gnani-dist"
       - run: uv run ruff check gnani tests
       - run: uv run ruff format --check gnani tests
       - run: uv run mypy gnani
@@ -34,8 +35,10 @@ jobs:
           echo "HERMES_HOME=$RUNNER_TEMP/hermes-profile" >> "$GITHUB_ENV"
           echo "PYTHONPATH=$PWD/.hermes-test-host:$PWD/.hermes-test-host/.venv/lib/python3.14/site-packages" >> "$GITHUB_ENV"
           export HERMES_HOME="$RUNNER_TEMP/hermes-profile"
-          mkdir -p "$HERMES_HOME/plugins/gnani"
-          cp gnani/*.py gnani/plugin.yaml "$HERMES_HOME/plugins/gnani/"
+          mkdir -p "$HERMES_HOME/plugins"
+          wheel_dir="$RUNNER_TEMP/gnani-wheel"
+          uv run python -m zipfile -e "$RUNNER_TEMP"/gnani-dist/*.whl "$wheel_dir"
+          cp -r "$wheel_dir/gnani" "$HERMES_HOME/plugins/gnani"
           sed 's/output_format: mp3/output_format: wav/' examples/config.yaml > "$HERMES_HOME/config.yaml"
           plugin_dir="$PWD/gnani"
           cd .hermes-test-host

@@ -10,3 +10,7 @@ htmlcov/
 .live/
 
 .hermes-test-host/
+
+build/
+dist/
+*.egg-info/

@@ -56,15 +56,16 @@ export HERMES_SRC=/absolute/path/to/hermes-agent
 export PYTHONPATH="$HERMES_SRC:$HERMES_SRC/.venv/lib/python3.14/site-packages"
 uv sync --locked
 uv lock --check
+uv build
 uv run ruff check gnani tests
 uv run ruff format --check gnani tests
 uv run mypy gnani
 uv run python -m pytest -m 'not live' --disable-socket --allow-unix-socket --cov=gnani
 ```
 
-Use `GNANI_TEST_HERMES=1` with a disposable `HERMES_HOME`, the copied and enabled plugin, and the example config with `tts.output_format: wav` to include the host discovery and dispatch test. The test uses the actual Hermes registries and dispatchers with controlled vendor responses.
+CI builds the source archive and wheel and validates the plugin directory extracted from the wheel. Use `GNANI_TEST_HERMES=1` with a disposable `HERMES_HOME`, the copied and enabled plugin, and the example config with `tts.output_format: wav` to include the host discovery and dispatch test. The test uses the actual Hermes registries and dispatchers with controlled vendor responses.
 
-For billable smoke tests, inject `GNANI_API_KEY` from your secret manager and opt in explicitly. The tests run serially. The optional `GNANI_LIVE_AUDIO_EN`, `GNANI_LIVE_AUDIO_HI`, `GNANI_LIVE_AUDIO_MIXED`, and `GNANI_LIVE_AUDIO_LONG` variables point to local recordings authorized for upload.
+For billable smoke tests, inject `GNANI_API_KEY` from your secret manager and opt in explicitly. The tests run serially. Both model pairs are exercised through Hermes when the installed-host tests are enabled. The optional `GNANI_LIVE_AUDIO_EN`, `GNANI_LIVE_AUDIO_HI`, `GNANI_LIVE_AUDIO_MIXED`, and `GNANI_LIVE_AUDIO_LONG` variables point to local recordings authorized for upload.
 Set `GNANI_LIVE_PRESIGNED=1` separately to test the documented upload route above 10 MB. This route returned HTTP 404 during release testing.
 
 ```sh
