@@ -1,0 +1,25 @@
+stt:
+  provider: gnani
+  streaming: true
+  gnani:
+    model: prisma-v3.0
+    language: indic-auto
+
+tts:
+  provider: gnani
+  model: timbre-v2.5
+  voice: Nalini
+  speed: 1.0
+  output_format: mp3
+  streaming:
+    provider: gnani
+
+voice:
+  voice_chat_mode: chained
+
+plugins:
+  entries:
+    gnani:
+      settings:
+        stt_format: verbatim
+        tts_language: auto
