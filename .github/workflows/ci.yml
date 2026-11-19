@@ -1,0 +1,48 @@
+name: Offline checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      GNANI_RUN_LIVE_TESTS: "0"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: NousResearch/hermes-agent
+          ref: ae2a81ccc00e9b7c06301523e5bb09608397149c
+          fetch-depth: 1
+          fetch-tags: true
+          path: .hermes-test-host
+      - uses: astral-sh/setup-uv@v7
+      - run: uv python install 3.14
+      - run: uv sync --locked
+      - run: uv lock --check
+      - run: uv run ruff check gnani tests
+      - run: uv run ruff format --check gnani tests
+      - run: uv run mypy gnani
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Prepare pinned Hermes runtime
+        working-directory: .hermes-test-host
+        run: uv sync --locked --no-dev
+      - name: Validate and install the plugin in an isolated profile
+        run: |
+          echo "HERMES_HOME=$RUNNER_TEMP/hermes-profile" >> "$GITHUB_ENV"
+          echo "PYTHONPATH=$PWD/.hermes-test-host:$PWD/.hermes-test-host/.venv/lib/python3.14/site-packages" >> "$GITHUB_ENV"
+          export HERMES_HOME="$RUNNER_TEMP/hermes-profile"
+          mkdir -p "$HERMES_HOME/plugins/gnani"
+          cp gnani/*.py gnani/plugin.yaml "$HERMES_HOME/plugins/gnani/"
+          sed 's/output_format: mp3/output_format: wav/' examples/config.yaml > "$HERMES_HOME/config.yaml"
+          plugin_dir="$PWD/gnani"
+          cd .hermes-test-host
+          .venv/bin/hermes plugins validate "$plugin_dir" --install-deps
+          .venv/bin/hermes plugins enable gnani
+          .venv/bin/hermes plugins doctor gnani --ci
+      - name: Run offline tests against the pinned host
+        env:
+          GNANI_TEST_HERMES: "1"
+        run: uv run python -m pytest -m 'not live' --disable-socket --allow-unix-socket --cov=gnani

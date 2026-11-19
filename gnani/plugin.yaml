@@ -1,0 +1,141 @@
+name: gnani
+version: "0.1.0"
+manifest_version: 2
+api_version: 1
+kind: standalone
+description: Native Prisma transcription and Timbre speech synthesis for Hermes.
+author: ANAMASGARD
+license: MIT
+homepage: https://github.com/ANAMASGARD/hermes-gnani
+requires_hermes: ">=0.23.2"
+tags: [voice, stt, tts]
+requires_env: [GNANI_API_KEY]
+provides_tools: []
+provides_hooks: []
+python_dependencies:
+  - "httpx>=0.28.1,<0.29"
+  - "websockets>=15.0.1,<16"
+config_keys: [stt.gnani, tts.model, tts.voice, tts.speed]
+config_schema:
+  api_key:
+    type: secret
+    env: GNANI_API_KEY
+    label: Gnani AI API key
+    description: Get a key at https://app.gnani.ai.
+  stt_model:
+    type: str
+    label: Prisma model
+    default: prisma-v3.0
+    choices: [prisma-v3.0, prisma-v2.5]
+  stt_language:
+    type: str
+    label: Prisma language
+    default: ""
+    description: Empty uses automatic detection on v3.0. Set one locale explicitly for v2.5.
+  stt_format:
+    type: str
+    label: Transcription style
+    default: verbatim
+    choices: [verbatim, transcribe, codemix, transliterate]
+  keyterms: {type: list, default: [], label: Prisma v3.0 keyterms}
+  topic: {type: str, default: "", label: Prisma v3.0 topic}
+  previous_text: {type: str, default: "", label: Prisma v3.0 previous transcript}
+  speaker_names: {type: list, default: [], label: Prisma v3.0 speaker names}
+  bias_list: {type: list, default: [], label: Prisma v2.5 word boosting}
+  bias_score: {type: float, default: 1.0, label: Prisma v2.5 boost score}
+  tts_model:
+    type: str
+    label: Timbre model
+    default: timbre-v2.5
+    choices: [timbre-v2.5, timbre-v3.0]
+  tts_language:
+    type: str
+    label: Timbre language
+    default: auto
+    choices: [auto, bn-IN, en-IN, gu-IN, hi-IN, hi-en, kn-IN, ml-IN, mr-IN, pa-IN, ta-IN, te-IN]
+  timbre_v25_voice:
+    type: str
+    label: timbre-v2.5 voice
+    default: Nalini
+    choices:
+      - Nalini
+      - Bhavna
+      - Yashvi
+      - Urmila
+      - Jwala
+      - Chitra
+      - Ambuja
+      - Deepak
+      - Roopesh
+      - Vikrant
+      - Hemraj
+      - Jalaj
+      - Omkar
+      - Kaveri
+      - Trupti
+      - Devika
+      - Pranav
+      - Shlok
+      - Girish
+      - Poorvi
+      - Asmita
+      - Trisha
+      - Brinda
+      - Vedika
+      - Noopur
+      - Suhana
+      - Lehara
+      - Lavanya
+      - Yukti
+      - Varuni
+      - Saanvi
+      - Kavin
+      - Reshma
+      - Riyaan
+      - Zahira
+      - Ishaan
+      - Kirra
+      - Dhruva
+      - Falak
+      - Veera
+      - Mehuli
+      - Zayan
+  timbre_v30_voice:
+    type: str
+    label: timbre-v3.0 voice
+    default: Shivani
+    choices:
+      - Shivani
+      - Anitasingh
+      - Arko
+      - Avinash
+      - Chetana
+      - Devansh
+      - Harshad
+      - Kalpana
+      - Lakshmi
+      - Lakshmidevi
+      - Mahendra
+      - Manjunath
+      - Neelam
+      - Nitin
+      - Prakash
+      - Priyasharm
+      - Rahulmehta
+      - Rajeev
+      - Rajni
+      - Rakesh
+      - Rekha
+      - Riyaa
+      - Santosh
+      - Shruthi
+      - Shubham
+      - Sneha
+      - Sohini
+      - Sunaina
+      - Swathi
+      - Tarika
+      - Vasudha
+      - Vikramdasu
+      - Vinod
+      - Yashraj
